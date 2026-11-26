@@ -1,12 +1,54 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Home, ReceiptText, BarChart2, User } from 'lucide-react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { Home, ReceiptText, BarChart2, User, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { NavigationTab, useExpenseStore } from '../store/useExpenseStore';
 
 export const BottomTabBar: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { activeTab, setActiveTab } = useExpenseStore();
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastFade = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const showComingSoonToast = (tabName: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+
+    setToastMessage(`${tabName} is coming soon in Koin v2`);
+
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+    }
+
+    toastFade.setValue(0);
+    Animated.spring(toastFade, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 60,
+      friction: 8,
+    }).start();
+
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastFade, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => setToastMessage(null));
+    }, 2200);
+  };
+
+  const handleTabPress = (tabName: NavigationTab) => {
+    if (tabName === 'Expenses') {
+      setActiveTab('Expenses');
+      return;
+    }
+
+    // For other tabs, show the sleek Coming Soon banner and keep Expenses focused
+    showComingSoonToast(tabName);
+  };
 
   const tabs: Array<{ name: NavigationTab; label: string; icon: any }> = [
     { name: 'Home', label: 'Home', icon: Home },
@@ -17,6 +59,30 @@ export const BottomTabBar: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      {/* Floating Coming Soon Toast Banner */}
+      {toastMessage && (
+        <Animated.View
+          style={[
+            styles.toastBubble,
+            {
+              opacity: toastFade,
+              transform: [
+                {
+                  translateY: toastFade.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [10, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Sparkles size={14} color="#059669" style={styles.toastIcon} />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
       <View style={styles.tabsRow}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.name;
@@ -28,7 +94,7 @@ export const BottomTabBar: React.FC = () => {
             <TouchableOpacity
               key={tab.name}
               activeOpacity={0.7}
-              onPress={() => setActiveTab(tab.name)}
+              onPress={() => handleTabPress(tab.name)}
               style={styles.tabItem}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
@@ -68,6 +134,34 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#EBE6DC',
     paddingTop: 10,
+    position: 'relative',
+  },
+  toastBubble: {
+    position: 'absolute',
+    top: -44,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+    zIndex: 999,
+  },
+  toastIcon: {
+    marginRight: 6,
+  },
+  toastText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '600',
   },
   tabsRow: {
     flexDirection: 'row',
