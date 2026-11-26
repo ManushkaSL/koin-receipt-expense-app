@@ -74,23 +74,9 @@ export async function extractReceiptData(
     console.warn('OCR fallback failed:', err);
   }
 
-  // 3. Fallback
-  onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
-  const fallbackItems = [
-    { id: `item_${Date.now()}_1`, name: 'Avocado toast', price: 14.00 },
-    { id: `item_${Date.now()}_2`, name: 'Cappuccino', price: 6.50 },
-    { id: `item_${Date.now()}_3`, name: 'Banana pancakes', price: 8.00 },
-  ];
-
-  return {
-    merchant: 'Cafe Kumbuk',
-    date: 'Nov 24, 2026',
-    category: 'Food & Dining',
-    items: fallbackItems,
-    total: calculateTotal(fallbackItems),
-    receiptUri: imageUri,
-    isSimulated: true,
-  };
+  // 3. When live API and OCR cannot parse or device is offline:
+  // Never return fake mock items silently. Throw error so user can enter manually.
+  throw new Error('EXTRACTION_FAILED');
 }
 
 /**
@@ -145,13 +131,13 @@ Return ONLY raw JSON.`;
     },
   };
 
-  const models = ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+  const models = ['gemini-flash-latest', 'gemini-3.1-flash-lite'];
 
   for (const model of models) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
 
       const res = await fetch(url, {
         method: 'POST',
@@ -162,7 +148,10 @@ Return ONLY raw JSON.`;
 
       clearTimeout(timeoutId);
 
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.warn(`Model ${model} returned HTTP ${res.status}: ${await res.text()}`);
+        continue;
+      }
 
       const result = await res.json();
       const textOutput = result?.candidates?.[0]?.content?.parts?.[0]?.text;

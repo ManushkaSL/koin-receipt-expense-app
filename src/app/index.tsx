@@ -74,8 +74,30 @@ export default function ExpensesScreen() {
         );
       } else {
         Alert.alert(
-          'Scan Error',
-          'Unable to parse receipt. Please try another image or enter manually.'
+          'Extraction Incomplete',
+          'Unable to automatically parse receipt details (device offline or unreadable image). Would you like to enter details manually?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Enter Manually',
+              onPress: () => {
+                setCurrentReview({
+                  merchant: '',
+                  date: new Date().toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  }),
+                  category: 'Food & Dining',
+                  items: [{ id: `item_${Date.now()}_1`, name: '', price: 0 }],
+                  total: 0,
+                  receiptUri: imageUri,
+                  isSimulated: false,
+                });
+                router.push('/review');
+              },
+            },
+          ]
         );
       }
     }
@@ -101,7 +123,7 @@ export default function ExpensesScreen() {
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        quality: 0.9,
+        quality: 0.6,
         allowsEditing: false,
         cameraType: ImagePicker.CameraType.back,
         base64: true,
@@ -132,7 +154,7 @@ export default function ExpensesScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: 0.9,
+        quality: 0.6,
         allowsEditing: false,
         base64: true,
       });
