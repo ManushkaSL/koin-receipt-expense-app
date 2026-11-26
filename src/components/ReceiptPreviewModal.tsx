@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Text,
   Pressable,
+  Animated,
 } from 'react-native';
 import { X, ReceiptText } from 'lucide-react-native';
 import { colors } from '../theme/colors';
@@ -22,16 +23,89 @@ export const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   imageUri,
   onClose,
 }) => {
+  const [modalRendered, setModalRendered] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0.88)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setModalRendered(true);
+      scaleAnim.setValue(0.88);
+      fadeAnim.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 7,
+          tension: 110,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (modalRendered) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.88,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setModalRendered(false);
+      });
+    }
+  }, [visible]);
+
+  const handleDismiss = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.88,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setModalRendered(false);
+      onClose();
+    });
+  };
+
+  if (!modalRendered && !visible) {
+    return null;
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <View style={styles.card} onStartShouldSetResponder={() => true}>
+    <Modal visible={modalRendered || visible} transparent animationType="none" onRequestClose={handleDismiss}>
+      <Pressable style={styles.overlay} onPress={handleDismiss}>
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }],
+            },
+          ]}
+          onStartShouldSetResponder={() => true}
+        >
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <ReceiptText size={20} color={colors.primaryGreen} />
               <Text style={styles.title}>Scanned Receipt</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={handleDismiss} style={styles.closeBtn}>
               <X size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
@@ -46,7 +120,7 @@ export const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
               </View>
             )}
           </View>
-        </View>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -55,10 +129,17 @@ export const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
   },
   card: {
     backgroundColor: '#FFFFFF',

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -10,7 +10,7 @@ import {
   Easing,
   Platform,
 } from 'react-native';
-import { Camera, Image as ImageIcon, X, Sparkles } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { colors } from '../theme/colors';
 
@@ -27,11 +27,16 @@ export const ScanActionSheet: React.FC<ScanActionSheetProps> = ({
   onGallery,
   onClose,
 }) => {
-  const slideAnim = useRef(new Animated.Value(300)).current;
+  const [modalRendered, setModalRendered] = useState(false);
+  const slideAnim = useRef(new Animated.Value(320)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      setModalRendered(true);
+      slideAnim.setValue(320);
+      fadeAnim.setValue(0);
+
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch {}
@@ -39,17 +44,18 @@ export const ScanActionSheet: React.FC<ScanActionSheetProps> = ({
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 220,
+          duration: 200,
           useNativeDriver: true,
         }),
         Animated.spring(slideAnim, {
           toValue: 0,
-          damping: 24,
-          stiffness: 280,
+          damping: 25,
+          stiffness: 300,
           useNativeDriver: true,
         }),
       ]).start();
-    } else {
+    } else if (modalRendered) {
+      // Animate out before closing modal
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -57,18 +63,63 @@ export const ScanActionSheet: React.FC<ScanActionSheetProps> = ({
           useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
-          toValue: 300,
+          toValue: 320,
           duration: 180,
           easing: Easing.in(Easing.quad),
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start(() => {
+        setModalRendered(false);
+      });
     }
   }, [visible]);
 
+  const handleDismiss = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 320,
+        duration: 180,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setModalRendered(false);
+      onClose();
+    });
+  };
+
+  const handleSelect = (callback: () => void) => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 320,
+        duration: 150,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setModalRendered(false);
+      onClose();
+      callback();
+    });
+  };
+
+  if (!modalRendered && !visible) {
+    return null;
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <Pressable style={styles.backdropPressable} onPress={onClose}>
+    <Modal visible={modalRendered || visible} transparent animationType="none" onRequestClose={handleDismiss}>
+      <Pressable style={styles.backdropPressable} onPress={handleDismiss}>
         <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
       </Pressable>
 
@@ -91,7 +142,7 @@ export const ScanActionSheet: React.FC<ScanActionSheetProps> = ({
           </View>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={onClose}
+            onPress={handleDismiss}
             style={styles.closeBtn}
             accessibilityLabel="Close"
           >
@@ -104,10 +155,7 @@ export const ScanActionSheet: React.FC<ScanActionSheetProps> = ({
           {/* Camera Option */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => {
-              onClose();
-              setTimeout(onCamera, 100);
-            }}
+            onPress={() => handleSelect(onCamera)}
             style={styles.optionCard}
           >
             <View style={[styles.iconWrapper, { backgroundColor: '#DCFCE7' }]}>
@@ -122,10 +170,7 @@ export const ScanActionSheet: React.FC<ScanActionSheetProps> = ({
           {/* Gallery Option */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => {
-              onClose();
-              setTimeout(onGallery, 100);
-            }}
+            onPress={() => handleSelect(onGallery)}
             style={styles.optionCard}
           >
             <View style={[styles.iconWrapper, { backgroundColor: '#EDE9FE' }]}>

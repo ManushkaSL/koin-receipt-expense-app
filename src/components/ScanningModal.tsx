@@ -27,21 +27,44 @@ export const ScanningModal: React.FC<ScanningModalProps> = ({
 }) => {
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const cardScaleAnim = useRef(new Animated.Value(0.9)).current;
+  const cardOpacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      // Reset values explicitly so animation replays fresh every time
+      scanLineAnim.setValue(0);
+      pulseAnim.setValue(1);
+      cardScaleAnim.setValue(0.9);
+      cardOpacityAnim.setValue(0);
+
+      // Entrance animation
+      Animated.parallel([
+        Animated.timing(cardOpacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardScaleAnim, {
+          toValue: 1,
+          friction: 7,
+          tension: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
       // Loop scan line animation smoothly across the receipt
       const scanLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(scanLineAnim, {
             toValue: 1,
-            duration: 1200,
+            duration: 1100,
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: Platform.OS !== 'web',
           }),
           Animated.timing(scanLineAnim, {
             toValue: 0,
-            duration: 1200,
+            duration: 1100,
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: Platform.OS !== 'web',
           }),
@@ -53,12 +76,12 @@ export const ScanningModal: React.FC<ScanningModalProps> = ({
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.08,
-            duration: 600,
+            duration: 550,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 600,
+            duration: 550,
             useNativeDriver: true,
           }),
         ])
@@ -70,6 +93,8 @@ export const ScanningModal: React.FC<ScanningModalProps> = ({
       return () => {
         scanLoop.stop();
         pulseLoop.stop();
+        scanLineAnim.setValue(0);
+        pulseAnim.setValue(1);
       };
     }
   }, [visible]);
@@ -80,9 +105,17 @@ export const ScanningModal: React.FC<ScanningModalProps> = ({
   });
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="none">
       <View style={styles.overlay}>
-        <View style={styles.contentCard}>
+        <Animated.View
+          style={[
+            styles.contentCard,
+            {
+              opacity: cardOpacityAnim,
+              transform: [{ scale: cardScaleAnim }],
+            },
+          ]}
+        >
           {/* Receipt Image Viewfinder Container */}
           <View style={styles.imageWrapper}>
             {imageUri ? (
@@ -129,7 +162,7 @@ export const ScanningModal: React.FC<ScanningModalProps> = ({
               ]}
             />
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
