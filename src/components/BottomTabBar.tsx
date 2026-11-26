@@ -10,7 +10,7 @@ export const BottomTabBar: React.FC = () => {
   const { activeTab, setActiveTab } = useExpenseStore();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastFade = useRef(new Animated.Value(0)).current;
-  const toastTimer = useRef<NodeJS.Timeout | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showComingSoonToast = (tabName: string) => {
     try {
