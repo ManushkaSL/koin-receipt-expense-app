@@ -21,6 +21,7 @@ import { DashedBorderCard } from '../components/DashedBorderCard';
 import { ExpenseRow } from '../components/ExpenseRow';
 import { BottomTabBar } from '../components/BottomTabBar';
 import { ScanningModal } from '../components/ScanningModal';
+import { WebCameraModal } from '../components/WebCameraModal';
 
 export default function ExpensesScreen() {
   const insets = useSafeAreaInsets();
@@ -36,6 +37,7 @@ export default function ExpensesScreen() {
   } = useExpenseStore();
 
   const [scannedImageUri, setScannedImageUri] = useState<string | null>(null);
+  const [webCameraVisible, setWebCameraVisible] = useState(false);
 
   // Common handler to start extraction pipeline
   const processReceiptImage = async (imageUri: string) => {
@@ -70,6 +72,13 @@ export default function ExpensesScreen() {
   };
 
   const handleCameraCapture = async () => {
+    // If running on web browser, open real interactive webcam viewfinder modal
+    if (Platform.OS === 'web') {
+      setWebCameraVisible(true);
+      return;
+    }
+
+    // On native iOS / Android, launch the device camera directly
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
@@ -82,15 +91,21 @@ export default function ExpensesScreen() {
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        quality: 0.8,
-        allowsEditing: true,
+        quality: 0.9,
+        allowsEditing: false, // Prevents Android/iOS from diverting to gallery cropping
+        cameraType: ImagePicker.CameraType.back,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         await processReceiptImage(result.assets[0].uri);
       }
     } catch (err) {
-      console.warn('Camera error:', err);
+      console.warn('Native camera error:', err);
+      // Fallback
+      Alert.alert(
+        'Camera Error',
+        'Could not start camera on this device. Please use gallery upload.'
+      );
     }
   };
 
@@ -108,7 +123,7 @@ export default function ExpensesScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         quality: 0.8,
-        allowsEditing: true,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -202,6 +217,16 @@ export default function ExpensesScreen() {
         stage={scanStage}
         progress={scanProgress}
       />
+
+      {/* Live Web Camera Viewfinder Modal (Web Browser) */}
+      <WebCameraModal
+        visible={webCameraVisible}
+        onCapture={(dataUri) => {
+          setWebCameraVisible(false);
+          processReceiptImage(dataUri);
+        }}
+        onClose={() => setWebCameraVisible(false)}
+      />
     </View>
   );
 }
@@ -209,7 +234,7 @@ export default function ExpensesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA', // Exact warm off-white / cream
+    backgroundColor: '#F4F1EA',
   },
   headerRow: {
     flexDirection: 'row',
@@ -225,7 +250,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#059669', // Deep emerald green
+    color: '#059669',
     letterSpacing: 1.2,
     marginBottom: 4,
     textTransform: 'uppercase',
@@ -239,7 +264,7 @@ const styles = StyleSheet.create({
   scanBillButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#00B37E', // Vibrant emerald green pill
+    backgroundColor: '#00B37E',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 24,
