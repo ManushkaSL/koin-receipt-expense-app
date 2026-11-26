@@ -8,7 +8,7 @@
 
 ## 📱 Overview & Design-to-Code Precision
 
-Koin turns messy receipts into clean, structured expense entries. This application replicates the provided Figma designs with 1:1 pixel fidelity across both **iOS** and **Android**:
+Koin turns messy receipts into clean, structured expense entries. This application closely follows the provided Figma designs, with attention to spacing, typography, colors, and consistent layouts across iOS and Android:
 
 - **Warm Theme & Palette**:
   - Background: Warm off-white/cream (`#F4F1EA`)
@@ -34,10 +34,10 @@ Koin turns messy receipts into clean, structured expense entries. This applicati
 
 ## 🚀 Key Features & Architecture
 
-### 1. Robust Dual Extraction Pipeline
-- **Live Multimodal Vision**: Powered by Google Gemini Flash Vision (`gemini-flash-latest`, `gemini-3.1-flash-lite`). Automatically compresses camera capture payloads (`quality: 0.6`) for rapid 1–2s network transmission.
+### 1. Robust Multimodal Extraction & Fallback Pipeline
+- **Multimodal Vision AI Support**: Supports both **Google Gemini Vision** (`gemini-flash-latest`, `gemini-3.1-flash-lite`) and **OpenAI GPT-4o-mini Vision** via configuration in `.env`. Camera capture payloads are optimized (`quality: 0.6`) to ensure fast and reliable uploads.
 - **Smart Non-Receipt Detection**: The vision engine analyzes incoming images for financial document characteristics. If a user uploads a photo of a pet, vehicle, selfie, or random landscape, the scanner cleanly halts and alerts: *"No Receipt Detected"*.
-- **Cloud OCR Fallback & Manual Entry**: For environments without an API key or when offline/unreadable, the app guides the user to a smooth manual entry workflow with their snapped receipt photo anchored in the preview thumbnail.
+- **OCR.space Fallback & Manual Entry**: Includes cloud OCR table parsing fallback for multi-column invoices and international receipts. When completely offline or if extraction cannot parse the image, the app cleanly transitions to a manual entry workflow with the snapped receipt anchored in the preview thumbnail.
 - **Animated Laser Scanning**: Pulsing laser scan line with corner framing brackets, progress bar, and user-facing stage feedback ("Reading receipt details...").
 
 ### 2. High-Precision Real-Time Currency Math
@@ -106,7 +106,7 @@ src/
 ## 🏃 Running the Project Locally
 
 ### Prerequisites
-- Node.js (v20+ or v22+)
+- Node.js (22.13 or newer)
 - npm, bun, or yarn
 
 ### 1. Clone & Install Dependencies
@@ -117,12 +117,12 @@ npm install
 ```
 
 ### 2. Environment Variables (Optional)
-If you want to test live multimodal extraction with your Google Gemini API key:
+If you want to test live multimodal extraction with an API key:
 ```bash
 cp .env.example .env
-# Set EXPO_PUBLIC_GEMINI_API_KEY=your_key in .env
+# Set EXPO_PUBLIC_GEMINI_API_KEY=your_key or EXPO_PUBLIC_OPENAI_API_KEY=your_key in .env
 ```
-*(If omitted, the app provides a smooth manual entry workflow).*
+*(If omitted, the app provides cloud OCR fallback and a smooth manual entry workflow).*
 
 ### 3. Run the Development Server
 ```bash
