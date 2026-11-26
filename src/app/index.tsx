@@ -123,7 +123,7 @@ export default function ExpensesScreen() {
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        quality: 0.6,
+        quality: 0.35,
         allowsEditing: false,
         cameraType: ImagePicker.CameraType.back,
         base64: true,
@@ -154,7 +154,7 @@ export default function ExpensesScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: 0.6,
+        quality: 0.35,
         allowsEditing: false,
         base64: true,
       });

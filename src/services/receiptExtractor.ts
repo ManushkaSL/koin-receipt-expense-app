@@ -131,13 +131,13 @@ Return ONLY raw JSON.`;
     },
   };
 
-  const models = ['gemini-flash-latest', 'gemini-3.1-flash-lite'];
+  const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest'];
 
   for (const model of models) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
 
       const res = await fetch(url, {
         method: 'POST',
