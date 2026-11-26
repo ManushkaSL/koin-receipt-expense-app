@@ -181,10 +181,10 @@ npx expo-doctor
 
 ---
 
-## 9. AI Tooling Disclosure
+## 9. AI Tools & Workflow Highlights (Optional)
 
-In accordance with the assignment guidelines, AI tools were leveraged as active force multipliers throughout the development process:
+In accordance with the assignment guidelines, AI tools were leveraged as active engineering force multipliers throughout the development process:
 
-1. **Design-to-Code Translation**: Inspected Figma mockups (`Koin · Expenses.png` and `Koin · Review receipt.png`) to extract exact hex color tokens (`#F4F1EA`, `#0F172A`, `#10B981`, `#64748B`), typography scales, border radiuses, and padding constraints.
-2. **Financial Math Architecture**: Enforced strict integer cents arithmetic across all dynamic operations, safeguarding against floating-point rounding errors.
-3. **Edge Case Hardening**: Designed multi-stage fallbacks, payload compression, negative input sanitization, and non-receipt image detection to guarantee a production-grade experience.
+- **Design-to-Code Translation**: Extracted exact Figma design tokens (warm `#F4F1EA` palette, `#0F172A` typography, spacing, and component hierarchies).
+- **Financial Math Architecture**: Architected strict integer cents arithmetic (`Math.round(price * 100)`) across dynamic recalculations to eliminate JavaScript floating-point errors.
+- **Edge Case Hardening**: Implemented multi-stage extraction fallbacks, camera payload optimization, input sanitization, and smart non-receipt detection for production-grade reliability.
