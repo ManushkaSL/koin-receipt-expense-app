@@ -10,8 +10,8 @@ export interface ScanProgressUpdate {
 /**
  * Extracts receipt information using:
  * 1. Google Gemini Multimodal Vision AI (when configured in .env)
- * 2. Cloud OCR Fallback with line item parsing
- * 3. Graceful offline preset
+ * 2. Cloud OCR Engine with intelligent multi-column table parser
+ * 3. Graceful fallback
  */
 export async function extractReceiptData(
   imageUri: string,
@@ -25,7 +25,6 @@ export async function extractReceiptData(
 
   onProgress?.({ progress: 0.25, stage: 'Analyzing receipt image...' });
 
-  // Use direct base64 from image picker or convert
   let base64Data = rawBase64 || '';
   if (!base64Data) {
     base64Data = await convertUriToBase64(imageUri);
@@ -50,13 +49,13 @@ export async function extractReceiptData(
         }
       }
     } catch (err: any) {
-      console.warn('Multimodal AI extraction error:', err?.message || err);
+      console.warn('Multimodal AI extraction error, trying cloud OCR:', err?.message || err);
     }
   }
 
-  // 2. Cloud OCR Engine Fallback
+  // 2. High-Precision Cloud OCR Engine Fallback
   try {
-    onProgress?.({ progress: 0.7, stage: 'Reading line items and currency values...' });
+    onProgress?.({ progress: 0.75, stage: 'Scanning invoice tables and price columns...' });
     const ocrResult = await extractWithFreeOCR(base64Data);
     if (ocrResult && ocrResult.items.length > 0) {
       onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
@@ -96,24 +95,26 @@ async function extractWithGemini(
   onProgress?.({ progress: 0.8, stage: 'Extracting line items and prices...' });
 
   const systemInstruction = `You are an expert receipt OCR system.
-Analyze this receipt image carefully.
+Analyze this receipt/invoice image carefully.
 Extract:
-1. "merchant": Store/restaurant name.
-2. "date": Date printed on receipt (e.g. "Nov 24, 2026").
+1. "merchant": Store/company name.
+2. "date": Date printed on receipt (e.g. "Nov 26, 2026").
 3. "category": Choose one of: "Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Entertainment", "Health", "Other".
 4. "items": Array of purchased line items. For each item:
-   - "name": Clean item description without barcode or SKU numbers.
-   - "price": Price as a float (e.g. 14.50). Pair each item accurately with its corresponding price column.
-Ignore subtotal, taxes (GST/VAT), change, tip, and payment method lines.
+   - "name": Clean item description.
+   - "price": Price as a float or integer (e.g. 8500 or 14.50). Match each item with its line total or unit price.
+5. "total": Grand total amount as a number.
+Ignore subtotal, taxes (GST/VAT), delivery fees, change, tip, and payment method lines.
 
 Return ONLY raw JSON with this exact schema:
 {
   "merchant": "Merchant Name",
-  "date": "Nov 24, 2026",
-  "category": "Food & Dining",
+  "date": "Nov 26, 2026",
+  "category": "Shopping",
   "items": [
-    { "name": "Item Name", "price": 14.50 }
-  ]
+    { "name": "Item Name", "price": 8500 }
+  ],
+  "total": 27000
 }`;
 
   const requestBody = {
@@ -136,44 +137,57 @@ Return ONLY raw JSON with this exact schema:
     },
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody),
-  });
+  const models = ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
 
-  if (!res.ok) {
-    const errorBody = await res.text();
-    throw new Error(`Gemini API HTTP ${res.status}: ${errorBody}`);
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) continue;
+
+      const result = await res.json();
+      const textOutput = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!textOutput) continue;
+
+      const jsonStr = textOutput.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(jsonStr);
+
+      const items = (parsed.items || [])
+        .filter((it: any) => it.name && (parseFloat(it.price) > 0 || typeof it.price === 'number'))
+        .map((it: any, index: number) => ({
+          id: `item_${Date.now()}_${index}`,
+          name: String(it.name).trim(),
+          price: Math.abs(parseFloat(it.price) || 0),
+        }));
+
+      if (items.length === 0) continue;
+
+      const total = parsed.total && parsed.total > 0 ? parsed.total : calculateTotal(items);
+
+      return {
+        merchant: parsed.merchant || 'Unknown Merchant',
+        date: parsed.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        category: validateCategory(parsed.category),
+        items,
+        total,
+      };
+    } catch (e) {
+      // Try next model
+    }
   }
 
-  const result = await res.json();
-  const textOutput = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!textOutput) return null;
-
-  const jsonStr = textOutput.replace(/```json/g, '').replace(/```/g, '').trim();
-  const parsed = JSON.parse(jsonStr);
-
-  const items = (parsed.items || [])
-    .filter((it: any) => it.name && (parseFloat(it.price) > 0 || typeof it.price === 'number'))
-    .map((it: any, index: number) => ({
-      id: `item_${Date.now()}_${index}`,
-      name: String(it.name).trim(),
-      price: Math.abs(parseFloat(it.price) || 0),
-    }));
-
-  if (items.length === 0) return null;
-
-  const total = calculateTotal(items);
-
-  return {
-    merchant: parsed.merchant || 'Unknown Merchant',
-    date: parsed.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    category: validateCategory(parsed.category),
-    items,
-    total,
-  };
+  return null;
 }
 
 /**
@@ -199,7 +213,7 @@ async function extractWithOpenAI(
         {
           role: 'system',
           content: `You are an expert receipt OCR system. Extract details from the receipt.
-Return JSON: { "merchant": string, "date": string, "category": string, "items": [{ "name": string, "price": number }] }`,
+Return JSON: { "merchant": string, "date": string, "category": string, "items": [{ "name": string, "price": number }], "total": number }`,
         },
         {
           role: 'user',
@@ -236,7 +250,7 @@ Return JSON: { "merchant": string, "date": string, "category": string, "items": 
     date: parsed.date || 'Today',
     category: validateCategory(parsed.category),
     items,
-    total: calculateTotal(items),
+    total: parsed.total || calculateTotal(items),
   };
 }
 
