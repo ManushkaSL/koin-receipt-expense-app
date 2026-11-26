@@ -49,6 +49,9 @@ export async function extractReceiptData(
         }
       }
     } catch (err: any) {
+      if (err?.message === 'NOT_A_RECEIPT') {
+        throw err;
+      }
       console.warn('Multimodal extraction error, trying cloud OCR:', err?.message || err);
     }
   }
@@ -57,11 +60,17 @@ export async function extractReceiptData(
   try {
     onProgress?.({ progress: 0.75, stage: 'Scanning invoice tables and price columns...' });
     const ocrResult = await extractWithFreeOCR(base64Data);
-    if (ocrResult && ocrResult.items.length > 0) {
+    if (ocrResult.data && ocrResult.data.items.length > 0) {
       onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
-      return { ...ocrResult, receiptUri: imageUri, isSimulated: false };
+      return { ...ocrResult.data, receiptUri: imageUri, isSimulated: false };
     }
-  } catch (err) {
+    if (ocrResult.isBlank) {
+      throw new Error('NOT_A_RECEIPT');
+    }
+  } catch (err: any) {
+    if (err?.message === 'NOT_A_RECEIPT') {
+      throw err;
+    }
     console.warn('OCR fallback failed:', err);
   }
 
@@ -95,27 +104,26 @@ async function extractWithGemini(
   onProgress?.({ progress: 0.8, stage: 'Extracting line items and prices...' });
 
   const systemInstruction = `You are an expert receipt OCR system.
-Analyze this receipt/invoice image carefully.
-Extract:
-1. "merchant": Store/company name.
-2. "date": Date printed on receipt (e.g. "Nov 26, 2026").
-3. "category": Choose one of: "Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Entertainment", "Health", "Other".
-4. "items": Array of purchased line items. For each item:
-   - "name": Clean item description.
-   - "price": Price as a float or integer (e.g. 8500 or 14.50). Match each item with its line total or unit price.
-5. "total": Grand total amount as a number.
-Ignore subtotal, taxes (GST/VAT), delivery fees, change, tip, and payment method lines.
-
-Return ONLY raw JSON with this exact schema:
+Analyze this image carefully.
+First, determine if this image contains a receipt, bill, invoice, or financial transaction document.
+If the image is NOT a receipt or bill (for example: a selfie, a person, a pet/animal, landscape, car, random object, meme, or non-financial photo), you MUST return:
 {
-  "merchant": "Merchant Name",
-  "date": "Nov 26, 2026",
-  "category": "Shopping",
+  "is_receipt": false
+}
+
+If the image IS a receipt or bill, return:
+{
+  "is_receipt": true,
+  "merchant": "Store/company name",
+  "date": "Date printed on receipt (e.g. Nov 26, 2026)",
+  "category": "One of: Food & Dining, Groceries, Transportation, Shopping, Utilities, Entertainment, Health, Other",
   "items": [
-    { "name": "Item Name", "price": 8500 }
+    { "name": "Item description", "price": 8500 }
   ],
   "total": 27000
-}`;
+}
+Ignore subtotal, taxes (GST/VAT), delivery fees, change, tip, and payment method lines.
+Return ONLY raw JSON.`;
 
   const requestBody = {
     contents: [
@@ -163,6 +171,10 @@ Return ONLY raw JSON with this exact schema:
       const jsonStr = textOutput.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(jsonStr);
 
+      if (parsed.is_receipt === false) {
+        throw new Error('NOT_A_RECEIPT');
+      }
+
       const items = (parsed.items || [])
         .filter((it: any) => it.name && (parseFloat(it.price) > 0 || typeof it.price === 'number'))
         .map((it: any, index: number) => ({
@@ -182,7 +194,10 @@ Return ONLY raw JSON with this exact schema:
         items,
         total,
       };
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.message === 'NOT_A_RECEIPT') {
+        throw e;
+      }
       // Try next model
     }
   }
@@ -212,8 +227,12 @@ async function extractWithOpenAI(
       messages: [
         {
           role: 'system',
-          content: `You are an expert receipt OCR system. Extract details from the receipt.
-Return JSON: { "merchant": string, "date": string, "category": string, "items": [{ "name": string, "price": number }], "total": number }`,
+          content: `You are an expert receipt OCR system.
+First determine if the image is a receipt, invoice, or bill.
+If it is NOT a receipt or bill (e.g. person, pet, car, landscape, object, meme), return:
+{ "is_receipt": false }
+Otherwise return:
+{ "is_receipt": true, "merchant": string, "date": string, "category": string, "items": [{ "name": string, "price": number }], "total": number }`,
         },
         {
           role: 'user',
@@ -239,6 +258,11 @@ Return JSON: { "merchant": string, "date": string, "category": string, "items": 
   if (!content) return null;
 
   const parsed = JSON.parse(content);
+
+  if (parsed.is_receipt === false) {
+    throw new Error('NOT_A_RECEIPT');
+  }
+
   const items = (parsed.items || []).map((it: any, index: number) => ({
     id: `item_${Date.now()}_${index}`,
     name: String(it.name || 'Item').trim(),
@@ -259,35 +283,50 @@ Return JSON: { "merchant": string, "date": string, "category": string, "items": 
  */
 async function extractWithFreeOCR(
   base64Data: string
-): Promise<Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'> | null> {
-  const formData = new FormData();
-  formData.append('apikey', 'helloworld');
-  formData.append('isTable', 'true');
-  formData.append('OCREngine', '2');
-  formData.append('detectOrientation', 'true');
-  formData.append('scale', 'true');
-  formData.append('base64Image', `data:image/jpeg;base64,${base64Data}`);
+): Promise<{ data: Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'> | null; isBlank?: boolean }> {
+  try {
+    const formData = new FormData();
+    formData.append('apikey', 'helloworld');
+    formData.append('isTable', 'true');
+    formData.append('OCREngine', '2');
+    formData.append('detectOrientation', 'true');
+    formData.append('scale', 'true');
+    formData.append('base64Image', `data:image/jpeg;base64,${base64Data}`);
 
-  const res = await fetch('https://api.ocr.space/parse/image', {
-    method: 'POST',
-    body: formData,
-  });
+    const res = await fetch('https://api.ocr.space/parse/image', {
+      method: 'POST',
+      body: formData,
+    });
 
-  if (!res.ok) return null;
+    if (!res.ok) return { data: null };
 
-  const json = await res.json();
-  const parsedText = json?.ParsedResults?.[0]?.ParsedText;
+    const json = await res.json();
+    const parsedText = json?.ParsedResults?.[0]?.ParsedText;
 
-  if (!parsedText || parsedText.trim().length === 0) return null;
+    if (!parsedText || parsedText.trim().length === 0) {
+      return { data: null, isBlank: true };
+    }
 
-  const parsed = parseRawReceiptText(parsedText);
-  return {
-    merchant: parsed.merchant,
-    date: parsed.date,
-    category: parsed.category,
-    items: parsed.items,
-    total: parsed.total,
-  };
+    const trimmed = parsedText.trim();
+    const hasDigits = /\d/.test(trimmed);
+    if (trimmed.length < 5 || !hasDigits) {
+      return { data: null, isBlank: true };
+    }
+
+    const parsed = parseRawReceiptText(trimmed);
+    return {
+      data: {
+        merchant: parsed.merchant,
+        date: parsed.date,
+        category: parsed.category,
+        items: parsed.items,
+        total: parsed.total,
+      },
+      isBlank: false,
+    };
+  } catch {
+    return { data: null };
+  }
 }
 
 async function convertUriToBase64(imageUri: string): Promise<string> {

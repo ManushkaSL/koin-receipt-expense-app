@@ -64,12 +64,19 @@ export default function ExpensesScreen() {
 
       // Transition smoothly to Review Extracted Receipt screen
       router.push('/review');
-    } catch (error) {
+    } catch (error: any) {
       setScanning(false);
-      Alert.alert(
-        'Scan Error',
-        'Unable to parse receipt. Please try another image or enter manually.'
-      );
+      if (error?.message === 'NOT_A_RECEIPT') {
+        Alert.alert(
+          'No Receipt Detected',
+          'The selected image does not appear to be a receipt or bill. Please snap or upload a clear photo of your receipt.'
+        );
+      } else {
+        Alert.alert(
+          'Scan Error',
+          'Unable to parse receipt. Please try another image or enter manually.'
+        );
+      }
     }
   };
 
