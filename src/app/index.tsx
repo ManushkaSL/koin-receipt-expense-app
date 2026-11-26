@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { Plus, Sparkles } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 
 import { colors } from '../theme/colors';
 import { useExpenseStore } from '../store/useExpenseStore';
@@ -22,7 +22,6 @@ import { ExpenseRow } from '../components/ExpenseRow';
 import { BottomTabBar } from '../components/BottomTabBar';
 import { ScanningModal } from '../components/ScanningModal';
 import { WebCameraModal } from '../components/WebCameraModal';
-import { ApiKeyModal } from '../components/ApiKeyModal';
 
 export default function ExpensesScreen() {
   const insets = useSafeAreaInsets();
@@ -39,7 +38,6 @@ export default function ExpensesScreen() {
 
   const [scannedImageUri, setScannedImageUri] = useState<string | null>(null);
   const [webCameraVisible, setWebCameraVisible] = useState(false);
-  const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
 
   // Common handler to start extraction pipeline
   const processReceiptImage = async (imageUri: string, base64?: string | null) => {
@@ -144,7 +142,6 @@ export default function ExpensesScreen() {
       [
         { text: 'Take Photo', onPress: handleCameraCapture },
         { text: 'Choose from Gallery', onPress: handleGalleryPick },
-        { text: 'AI Settings', onPress: () => setApiKeyModalVisible(true) },
         { text: 'Cancel', style: 'cancel' },
       ],
       { cancelable: true }
@@ -153,20 +150,10 @@ export default function ExpensesScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>
-      {/* Top Header */}
+      {/* Top Header matching Figma exactly */}
       <View style={styles.headerRow}>
         <View style={styles.titleColumn}>
-          <View style={styles.eyebrowRow}>
-            <Text style={styles.eyebrow}>KOIN</Text>
-            <TouchableOpacity
-              onPress={() => setApiKeyModalVisible(true)}
-              style={styles.aiBadge}
-              accessibilityLabel="AI Scanner Settings"
-            >
-              <Sparkles size={11} color="#059669" />
-              <Text style={styles.aiBadgeText}>AI Engine</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.eyebrow}>KOIN</Text>
           <Text style={styles.title}>Expenses</Text>
         </View>
 
@@ -241,12 +228,6 @@ export default function ExpensesScreen() {
         }}
         onClose={() => setWebCameraVisible(false)}
       />
-
-      {/* AI Key / Configuration Modal */}
-      <ApiKeyModal
-        visible={apiKeyModalVisible}
-        onClose={() => setApiKeyModalVisible(false)}
-      />
     </View>
   );
 }
@@ -267,32 +248,13 @@ const styles = StyleSheet.create({
   titleColumn: {
     justifyContent: 'flex-end',
   },
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
   eyebrow: {
     fontSize: 12,
     fontWeight: '800',
     color: '#059669',
     letterSpacing: 1.2,
+    marginBottom: 4,
     textTransform: 'uppercase',
-  },
-  aiBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    gap: 3,
-  },
-  aiBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#065F46',
   },
   title: {
     fontSize: 32,

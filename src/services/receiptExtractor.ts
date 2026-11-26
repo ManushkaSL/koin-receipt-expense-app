@@ -1,60 +1,51 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ExtractedReceiptData, ExpenseCategory } from '../types/expense';
 import { calculateTotal } from '../utils/currency';
 import { parseRawReceiptText } from '../utils/receiptParser';
 
-export const USER_AI_KEY_STORAGE = '@koin_user_gemini_key';
-
 export interface ScanProgressUpdate {
-  progress: number; // 0 to 1
+  progress: number;
   stage: string;
 }
 
 /**
- * Extracts receipt information with high precision using:
- * 1. Google Gemini Multimodal AI (1.5 Flash / 2.0 Flash) or OpenAI GPT-4o Vision
- * 2. Enhanced Cloud OCR with structured receipt parsing
- * 3. Graceful fallback
+ * Extracts receipt information using:
+ * 1. Google Gemini Multimodal Vision AI (when configured in .env)
+ * 2. Cloud OCR Fallback with line item parsing
+ * 3. Graceful offline preset
  */
 export async function extractReceiptData(
   imageUri: string,
   rawBase64?: string | null,
   onProgress?: (update: ScanProgressUpdate) => void
 ): Promise<ExtractedReceiptData> {
-  // Check for configured API key (AsyncStorage first, then process.env)
-  let apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
-  try {
-    const storedKey = await AsyncStorage.getItem(USER_AI_KEY_STORAGE);
-    if (storedKey && storedKey.trim()) {
-      apiKey = storedKey.trim();
-    }
-  } catch {}
+  const apiKey =
+    process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
+    process.env.EXPO_PUBLIC_OPENAI_API_KEY ||
+    '';
 
-  onProgress?.({ progress: 0.2, stage: 'Processing receipt image...' });
+  onProgress?.({ progress: 0.25, stage: 'Analyzing receipt image...' });
 
-  // Get reliable base64 string
+  // Use direct base64 from image picker or convert
   let base64Data = rawBase64 || '';
   if (!base64Data) {
     base64Data = await convertUriToBase64(imageUri);
   }
 
-  // 1. If an API key is available (Gemini or OpenAI), use Multimodal Vision AI
+  // 1. Live Multimodal Vision AI (Gemini or OpenAI)
   if (apiKey) {
     try {
       if (apiKey.startsWith('sk-')) {
-        // OpenAI GPT-4o-mini Vision
-        onProgress?.({ progress: 0.5, stage: 'Reading complex receipt with OpenAI Vision...' });
+        onProgress?.({ progress: 0.65, stage: 'Parsing items and prices with AI Vision...' });
         const extracted = await extractWithOpenAI(base64Data, apiKey, onProgress);
         if (extracted && extracted.items.length > 0) {
-          onProgress?.({ progress: 1.0, stage: 'Complete!' });
+          onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
           return { ...extracted, receiptUri: imageUri, isSimulated: false };
         }
       } else {
-        // Google Gemini Vision AI (1.5 Flash / 2.0 Flash)
-        onProgress?.({ progress: 0.5, stage: 'Analyzing complex receipt with Gemini Vision...' });
+        onProgress?.({ progress: 0.65, stage: 'Parsing items and prices with Gemini Vision...' });
         const extracted = await extractWithGemini(base64Data, apiKey, onProgress);
         if (extracted && extracted.items.length > 0) {
-          onProgress?.({ progress: 1.0, stage: 'Complete!' });
+          onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
           return { ...extracted, receiptUri: imageUri, isSimulated: false };
         }
       }
@@ -63,20 +54,20 @@ export async function extractReceiptData(
     }
   }
 
-  // 2. High-Fidelity Free OCR Engine Fallback
+  // 2. Cloud OCR Engine Fallback
   try {
-    onProgress?.({ progress: 0.65, stage: 'Scanning columns & price values...' });
+    onProgress?.({ progress: 0.7, stage: 'Reading line items and currency values...' });
     const ocrResult = await extractWithFreeOCR(base64Data);
     if (ocrResult && ocrResult.items.length > 0) {
-      onProgress?.({ progress: 1.0, stage: 'Complete!' });
+      onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
       return { ...ocrResult, receiptUri: imageUri, isSimulated: false };
     }
   } catch (err) {
-    console.warn('Free OCR failed:', err);
+    console.warn('OCR fallback failed:', err);
   }
 
-  // 3. Fallback to readable realistic parsed structure
-  onProgress?.({ progress: 1.0, stage: 'Complete!' });
+  // 3. Fallback
+  onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
   const fallbackItems = [
     { id: `item_${Date.now()}_1`, name: 'Avocado toast', price: 14.00 },
     { id: `item_${Date.now()}_2`, name: 'Cappuccino', price: 6.50 },
@@ -95,33 +86,33 @@ export async function extractReceiptData(
 }
 
 /**
- * Google Gemini Multimodal Vision API (Handles multi-column, faded paper, complex bills)
+ * Google Gemini Multimodal Vision API
  */
 async function extractWithGemini(
   base64Data: string,
   apiKey: string,
   onProgress?: (update: ScanProgressUpdate) => void
 ): Promise<Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'> | null> {
-  onProgress?.({ progress: 0.75, stage: 'Extracting line items and precise prices...' });
+  onProgress?.({ progress: 0.8, stage: 'Extracting line items and prices...' });
 
-  const systemInstruction = `You are a high-precision financial receipt scanner.
-Analyze the provided receipt or bill image with extreme accuracy.
+  const systemInstruction = `You are an expert receipt OCR system.
+Analyze this receipt image carefully.
 Extract:
-1. "merchant": Store or restaurant name from the top header.
-2. "date": Date printed on receipt formatted like "Nov 24, 2026".
-3. "category": Best match among: "Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Entertainment", "Health", "Other".
-4. "items": Array of actual purchased line items. For each item:
-   - "name": Clean item description without SKU, barcode, or internal ID.
-   - "price": The exact line item price as a float (e.g. 14.50). Match each item carefully with its corresponding price column.
-Ignore subtotal, sales tax (GST/VAT), payment methods, card info, change due, and tip lines unless they are distinct items.
+1. "merchant": Store/restaurant name.
+2. "date": Date printed on receipt (e.g. "Nov 24, 2026").
+3. "category": Choose one of: "Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Entertainment", "Health", "Other".
+4. "items": Array of purchased line items. For each item:
+   - "name": Clean item description without barcode or SKU numbers.
+   - "price": Price as a float (e.g. 14.50). Pair each item accurately with its corresponding price column.
+Ignore subtotal, taxes (GST/VAT), change, tip, and payment method lines.
 
-Return ONLY valid JSON matching this exact structure:
+Return ONLY raw JSON with this exact schema:
 {
   "merchant": "Merchant Name",
   "date": "Nov 24, 2026",
   "category": "Food & Dining",
   "items": [
-    { "name": "Item Description", "price": 14.50 }
+    { "name": "Item Name", "price": 14.50 }
   ]
 }`;
 
@@ -145,7 +136,6 @@ Return ONLY valid JSON matching this exact structure:
     },
   };
 
-  // Try gemini-1.5-flash (primary high-speed multimodal)
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
@@ -194,7 +184,7 @@ async function extractWithOpenAI(
   apiKey: string,
   onProgress?: (update: ScanProgressUpdate) => void
 ): Promise<Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'> | null> {
-  onProgress?.({ progress: 0.75, stage: 'Parsing receipt with OpenAI GPT-4o...' });
+  onProgress?.({ progress: 0.8, stage: 'Parsing receipt with OpenAI GPT-4o...' });
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -251,7 +241,7 @@ Return JSON: { "merchant": string, "date": string, "category": string, "items": 
 }
 
 /**
- * Free OCR.space API Fallback
+ * Cloud OCR Engine Fallback
  */
 async function extractWithFreeOCR(
   base64Data: string
