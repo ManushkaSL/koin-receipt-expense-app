@@ -19,12 +19,14 @@ interface ExpenseRowProps {
   expense: Expense;
   isLast?: boolean;
   onPress?: () => void;
+  onLongPress?: () => void;
 }
 
 export const ExpenseRow: React.FC<ExpenseRowProps> = ({
   expense,
   isLast = false,
   onPress,
+  onLongPress,
 }) => {
   const categoryInfo = getCategoryInfo(expense.category);
 
@@ -56,6 +58,8 @@ export const ExpenseRow: React.FC<ExpenseRowProps> = ({
       <TouchableOpacity
         activeOpacity={0.7}
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={400}
         style={styles.rowContainer}
         accessibilityRole="button"
         accessibilityLabel={`${expense.merchant}, ${expense.date}, ${formatCurrency(expense.total)}`}

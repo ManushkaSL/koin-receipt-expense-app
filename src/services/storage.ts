@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Expense } from '../types/expense';
 
-const EXPENSES_STORAGE_KEY = '@koin_expenses_v1';
+const EXPENSES_STORAGE_KEY = '@koin_expenses_v2';
 
 export const INITIAL_EXPENSES: Expense[] = [
   {

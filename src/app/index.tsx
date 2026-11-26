@@ -35,6 +35,7 @@ export default function ExpensesScreen() {
     scanStage,
     setScanning,
     setCurrentReview,
+    deleteExpense,
   } = useExpenseStore();
 
   const [scannedImageUri, setScannedImageUri] = useState<string | null>(null);
@@ -202,6 +203,23 @@ export default function ExpensesScreen() {
                 key={expense.id}
                 expense={expense}
                 isLast={index === expenses.length - 1}
+                onLongPress={() => {
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  } catch {}
+                  Alert.alert(
+                    'Delete Expense',
+                    `Delete "${expense.merchant}" ($${expense.total.toFixed(2)}) from Recent Activity?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => deleteExpense(expense.id),
+                      },
+                    ]
+                  );
+                }}
               />
             ))
           )}
