@@ -30,18 +30,18 @@ export async function extractReceiptData(
     base64Data = await convertUriToBase64(imageUri);
   }
 
-  // 1. Live Multimodal Vision AI (Gemini or OpenAI)
+  // 1. Live Multimodal Vision (Gemini or OpenAI)
   if (apiKey) {
     try {
       if (apiKey.startsWith('sk-')) {
-        onProgress?.({ progress: 0.65, stage: 'Parsing items and prices with AI Vision...' });
+        onProgress?.({ progress: 0.65, stage: 'Reading line items and prices...' });
         const extracted = await extractWithOpenAI(base64Data, apiKey, onProgress);
         if (extracted && extracted.items.length > 0) {
           onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
           return { ...extracted, receiptUri: imageUri, isSimulated: false };
         }
       } else {
-        onProgress?.({ progress: 0.65, stage: 'Parsing items and prices with Gemini Vision...' });
+        onProgress?.({ progress: 0.65, stage: 'Reading line items and prices...' });
         const extracted = await extractWithGemini(base64Data, apiKey, onProgress);
         if (extracted && extracted.items.length > 0) {
           onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
@@ -49,7 +49,7 @@ export async function extractReceiptData(
         }
       }
     } catch (err: any) {
-      console.warn('Multimodal AI extraction error, trying cloud OCR:', err?.message || err);
+      console.warn('Multimodal extraction error, trying cloud OCR:', err?.message || err);
     }
   }
 
