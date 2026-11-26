@@ -3,182 +3,125 @@ import { ExtractedReceiptData, ExpenseCategory } from '../types/expense';
 import { calculateTotal } from '../utils/currency';
 import { parseRawReceiptText } from '../utils/receiptParser';
 
-export const USER_GEMINI_KEY_STORAGE = '@koin_user_gemini_key';
+export const USER_AI_KEY_STORAGE = '@koin_user_gemini_key';
 
 export interface ScanProgressUpdate {
   progress: number; // 0 to 1
   stage: string;
 }
 
-// Preset realistic receipts for offline fallback only
-const SAMPLE_PRESETS: Array<Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'>> = [
-  {
-    merchant: 'Cafe Kumbuk',
-    date: 'Nov 24, 2026',
-    category: 'Food & Dining',
-    items: [
-      { id: 'item_1', name: 'Avocado toast', price: 14.00 },
-      { id: 'item_2', name: 'Cappuccino', price: 6.50 },
-      { id: 'item_3', name: 'Banana pancakes', price: 8.00 },
-    ],
-    total: 28.50,
-  },
-  {
-    merchant: 'Keells Super',
-    date: 'Nov 25, 2026',
-    category: 'Groceries',
-    items: [
-      { id: 'item_1', name: 'Fresh Full Cream Milk', price: 3.80 },
-      { id: 'item_2', name: 'Organic Honey', price: 12.40 },
-      { id: 'item_3', name: 'Extra Virgin Olive Oil', price: 18.50 },
-      { id: 'item_4', name: 'Green Apples 1kg', price: 6.50 },
-      { id: 'item_5', name: 'Greek Natural Yogurt', price: 5.00 },
-      { id: 'item_6', name: 'Kitchen Paper Towels', price: 18.00 },
-    ],
-    total: 64.20,
-  },
-];
-
-let presetIndex = 0;
-
 /**
- * Extracts receipt information using:
- * 1. Gemini Vision AI (if user configured key or in .env)
- * 2. Free Cloud OCR API (OCR.space) reading real text with zero keys
- * 3. Offline Preset fallback (if network is completely unavailable)
+ * Extracts receipt information with high precision using:
+ * 1. Google Gemini Multimodal AI (1.5 Flash / 2.0 Flash) or OpenAI GPT-4o Vision
+ * 2. Enhanced Cloud OCR with structured receipt parsing
+ * 3. Graceful fallback
  */
 export async function extractReceiptData(
   imageUri: string,
+  rawBase64?: string | null,
   onProgress?: (update: ScanProgressUpdate) => void
 ): Promise<ExtractedReceiptData> {
-  // Check for API key (AsyncStorage first, then process.env)
-  let apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+  // Check for configured API key (AsyncStorage first, then process.env)
+  let apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
   try {
-    const storedKey = await AsyncStorage.getItem(USER_GEMINI_KEY_STORAGE);
+    const storedKey = await AsyncStorage.getItem(USER_AI_KEY_STORAGE);
     if (storedKey && storedKey.trim()) {
       apiKey = storedKey.trim();
     }
   } catch {}
 
-  onProgress?.({ progress: 0.2, stage: 'Enhancing and reading receipt image...' });
+  onProgress?.({ progress: 0.2, stage: 'Processing receipt image...' });
 
-  // Convert image URI to base64 for API transmission
-  const base64Data = await convertUriToBase64(imageUri);
+  // Get reliable base64 string
+  let base64Data = rawBase64 || '';
+  if (!base64Data) {
+    base64Data = await convertUriToBase64(imageUri);
+  }
 
-  // Strategy 1: Google Gemini Multimodal Vision (High Accuracy)
+  // 1. If an API key is available (Gemini or OpenAI), use Multimodal Vision AI
   if (apiKey) {
     try {
-      onProgress?.({ progress: 0.5, stage: 'Analyzing with Gemini Vision AI...' });
-      const extracted = await extractWithGemini(base64Data, apiKey, onProgress);
-      if (extracted) {
-        onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
-        return {
-          ...extracted,
-          receiptUri: imageUri,
-          isSimulated: false,
-        };
+      if (apiKey.startsWith('sk-')) {
+        // OpenAI GPT-4o-mini Vision
+        onProgress?.({ progress: 0.5, stage: 'Reading complex receipt with OpenAI Vision...' });
+        const extracted = await extractWithOpenAI(base64Data, apiKey, onProgress);
+        if (extracted && extracted.items.length > 0) {
+          onProgress?.({ progress: 1.0, stage: 'Complete!' });
+          return { ...extracted, receiptUri: imageUri, isSimulated: false };
+        }
+      } else {
+        // Google Gemini Vision AI (1.5 Flash / 2.0 Flash)
+        onProgress?.({ progress: 0.5, stage: 'Analyzing complex receipt with Gemini Vision...' });
+        const extracted = await extractWithGemini(base64Data, apiKey, onProgress);
+        if (extracted && extracted.items.length > 0) {
+          onProgress?.({ progress: 1.0, stage: 'Complete!' });
+          return { ...extracted, receiptUri: imageUri, isSimulated: false };
+        }
       }
-    } catch (err) {
-      console.warn('Gemini Vision failed, trying free OCR API:', err);
+    } catch (err: any) {
+      console.warn('Multimodal AI extraction error:', err?.message || err);
     }
   }
 
-  // Strategy 2: Free Real OCR API (Reads ANY actual receipt with zero keys required)
+  // 2. High-Fidelity Free OCR Engine Fallback
   try {
-    onProgress?.({ progress: 0.6, stage: 'Reading receipt text with OCR engine...' });
+    onProgress?.({ progress: 0.65, stage: 'Scanning columns & price values...' });
     const ocrResult = await extractWithFreeOCR(base64Data);
     if (ocrResult && ocrResult.items.length > 0) {
-      onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
-      return {
-        ...ocrResult,
-        receiptUri: imageUri,
-        isSimulated: false,
-      };
+      onProgress?.({ progress: 1.0, stage: 'Complete!' });
+      return { ...ocrResult, receiptUri: imageUri, isSimulated: false };
     }
   } catch (err) {
-    console.warn('Free OCR failed, falling back to realistic preset:', err);
+    console.warn('Free OCR failed:', err);
   }
 
-  // Strategy 3: Realistic Preset Fallback (Only if completely offline or unreadable)
-  onProgress?.({ progress: 0.85, stage: 'Formatting detected line items...' });
-  await delay(400);
-
-  onProgress?.({ progress: 1.0, stage: 'Extraction complete!' });
-  const selectedPreset = SAMPLE_PRESETS[presetIndex % SAMPLE_PRESETS.length];
-  presetIndex++;
-
-  const items = selectedPreset.items.map((it, idx) => ({
-    ...it,
-    id: `extracted_${Date.now()}_${idx}`,
-  }));
+  // 3. Fallback to readable realistic parsed structure
+  onProgress?.({ progress: 1.0, stage: 'Complete!' });
+  const fallbackItems = [
+    { id: `item_${Date.now()}_1`, name: 'Avocado toast', price: 14.00 },
+    { id: `item_${Date.now()}_2`, name: 'Cappuccino', price: 6.50 },
+    { id: `item_${Date.now()}_3`, name: 'Banana pancakes', price: 8.00 },
+  ];
 
   return {
-    merchant: selectedPreset.merchant,
-    date: selectedPreset.date,
-    category: selectedPreset.category,
-    items,
-    total: calculateTotal(items),
+    merchant: 'Cafe Kumbuk',
+    date: 'Nov 24, 2026',
+    category: 'Food & Dining',
+    items: fallbackItems,
+    total: calculateTotal(fallbackItems),
     receiptUri: imageUri,
     isSimulated: true,
   };
 }
 
 /**
- * Free OCR.space API — reads actual text from image without user configuration
- */
-async function extractWithFreeOCR(
-  base64Data: string
-): Promise<Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'> | null> {
-  const formData = new FormData();
-  formData.append('apikey', 'helloworld');
-  formData.append('isTable', 'true');
-  formData.append('OCREngine', '2');
-  formData.append('base64Image', `data:image/jpeg;base64,${base64Data}`);
-
-  const res = await fetch('https://api.ocr.space/parse/image', {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!res.ok) {
-    throw new Error(`OCR Space HTTP error: ${res.status}`);
-  }
-
-  const json = await res.json();
-  const parsedText = json?.ParsedResults?.[0]?.ParsedText;
-
-  if (!parsedText || parsedText.trim().length === 0) {
-    return null;
-  }
-
-  const parsed = parseRawReceiptText(parsedText);
-  return {
-    merchant: parsed.merchant,
-    date: parsed.date,
-    category: parsed.category,
-    items: parsed.items,
-    total: parsed.total,
-  };
-}
-
-/**
- * Google Gemini Multimodal Vision API
+ * Google Gemini Multimodal Vision API (Handles multi-column, faded paper, complex bills)
  */
 async function extractWithGemini(
   base64Data: string,
   apiKey: string,
   onProgress?: (update: ScanProgressUpdate) => void
 ): Promise<Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'> | null> {
-  onProgress?.({ progress: 0.7, stage: 'Parsing line items and totals...' });
+  onProgress?.({ progress: 0.75, stage: 'Extracting line items and precise prices...' });
 
-  const prompt = `You are an expert receipt OCR scanner. Extract details from this receipt image.
-Return ONLY raw JSON with this exact schema (no markdown, no backticks, no comments):
+  const systemInstruction = `You are a high-precision financial receipt scanner.
+Analyze the provided receipt or bill image with extreme accuracy.
+Extract:
+1. "merchant": Store or restaurant name from the top header.
+2. "date": Date printed on receipt formatted like "Nov 24, 2026".
+3. "category": Best match among: "Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Entertainment", "Health", "Other".
+4. "items": Array of actual purchased line items. For each item:
+   - "name": Clean item description without SKU, barcode, or internal ID.
+   - "price": The exact line item price as a float (e.g. 14.50). Match each item carefully with its corresponding price column.
+Ignore subtotal, sales tax (GST/VAT), payment methods, card info, change due, and tip lines unless they are distinct items.
+
+Return ONLY valid JSON matching this exact structure:
 {
   "merchant": "Merchant Name",
   "date": "Nov 24, 2026",
-  "category": "Food & Dining" | "Groceries" | "Transportation" | "Shopping" | "Utilities" | "Entertainment" | "Health" | "Other",
+  "category": "Food & Dining",
   "items": [
-    { "name": "Item Name", "price": 14.00 }
+    { "name": "Item Description", "price": 14.50 }
   ]
 }`;
 
@@ -186,7 +129,7 @@ Return ONLY raw JSON with this exact schema (no markdown, no backticks, no comme
     contents: [
       {
         parts: [
-          { text: prompt },
+          { text: systemInstruction },
           {
             inline_data: {
               mime_type: 'image/jpeg',
@@ -197,11 +140,12 @@ Return ONLY raw JSON with this exact schema (no markdown, no backticks, no comme
       },
     ],
     generationConfig: {
-      temperature: 0.1,
+      temperature: 0.0,
       response_mime_type: 'application/json',
     },
   };
 
+  // Try gemini-1.5-flash (primary high-speed multimodal)
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
@@ -210,7 +154,8 @@ Return ONLY raw JSON with this exact schema (no markdown, no backticks, no comme
   });
 
   if (!res.ok) {
-    throw new Error(`Gemini Vision HTTP ${res.status}: ${await res.text()}`);
+    const errorBody = await res.text();
+    throw new Error(`Gemini API HTTP ${res.status}: ${errorBody}`);
   }
 
   const result = await res.json();
@@ -220,11 +165,15 @@ Return ONLY raw JSON with this exact schema (no markdown, no backticks, no comme
   const jsonStr = textOutput.replace(/```json/g, '').replace(/```/g, '').trim();
   const parsed = JSON.parse(jsonStr);
 
-  const items = (parsed.items || []).map((it: any, index: number) => ({
-    id: `item_${Date.now()}_${index}`,
-    name: String(it.name || 'Item'),
-    price: parseFloat(it.price) || 0,
-  }));
+  const items = (parsed.items || [])
+    .filter((it: any) => it.name && (parseFloat(it.price) > 0 || typeof it.price === 'number'))
+    .map((it: any, index: number) => ({
+      id: `item_${Date.now()}_${index}`,
+      name: String(it.name).trim(),
+      price: Math.abs(parseFloat(it.price) || 0),
+    }));
+
+  if (items.length === 0) return null;
 
   const total = calculateTotal(items);
 
@@ -234,6 +183,106 @@ Return ONLY raw JSON with this exact schema (no markdown, no backticks, no comme
     category: validateCategory(parsed.category),
     items,
     total,
+  };
+}
+
+/**
+ * OpenAI GPT-4o-mini Vision API Support
+ */
+async function extractWithOpenAI(
+  base64Data: string,
+  apiKey: string,
+  onProgress?: (update: ScanProgressUpdate) => void
+): Promise<Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'> | null> {
+  onProgress?.({ progress: 0.75, stage: 'Parsing receipt with OpenAI GPT-4o...' });
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert receipt OCR system. Extract details from the receipt.
+Return JSON: { "merchant": string, "date": string, "category": string, "items": [{ "name": string, "price": number }] }`,
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Extract all line items and prices accurately from this receipt.' },
+            {
+              type: 'image_url',
+              image_url: { url: `data:image/jpeg;base64,${base64Data}` },
+            },
+          ],
+        },
+      ],
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI HTTP ${response.status}: ${await response.text()}`);
+  }
+
+  const json = await response.json();
+  const content = json.choices?.[0]?.message?.content;
+  if (!content) return null;
+
+  const parsed = JSON.parse(content);
+  const items = (parsed.items || []).map((it: any, index: number) => ({
+    id: `item_${Date.now()}_${index}`,
+    name: String(it.name || 'Item').trim(),
+    price: Math.abs(parseFloat(it.price) || 0),
+  }));
+
+  return {
+    merchant: parsed.merchant || 'Store',
+    date: parsed.date || 'Today',
+    category: validateCategory(parsed.category),
+    items,
+    total: calculateTotal(items),
+  };
+}
+
+/**
+ * Free OCR.space API Fallback
+ */
+async function extractWithFreeOCR(
+  base64Data: string
+): Promise<Omit<ExtractedReceiptData, 'receiptUri' | 'isSimulated'> | null> {
+  const formData = new FormData();
+  formData.append('apikey', 'helloworld');
+  formData.append('isTable', 'true');
+  formData.append('OCREngine', '2');
+  formData.append('detectOrientation', 'true');
+  formData.append('scale', 'true');
+  formData.append('base64Image', `data:image/jpeg;base64,${base64Data}`);
+
+  const res = await fetch('https://api.ocr.space/parse/image', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) return null;
+
+  const json = await res.json();
+  const parsedText = json?.ParsedResults?.[0]?.ParsedText;
+
+  if (!parsedText || parsedText.trim().length === 0) return null;
+
+  const parsed = parseRawReceiptText(parsedText);
+  return {
+    merchant: parsed.merchant,
+    date: parsed.date,
+    category: parsed.category,
+    items: parsed.items,
+    total: parsed.total,
   };
 }
 
@@ -271,8 +320,4 @@ function validateCategory(cat: string): ExpenseCategory {
     return cat as ExpenseCategory;
   }
   return 'Food & Dining';
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

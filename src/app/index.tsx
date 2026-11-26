@@ -42,7 +42,7 @@ export default function ExpensesScreen() {
   const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
 
   // Common handler to start extraction pipeline
-  const processReceiptImage = async (imageUri: string) => {
+  const processReceiptImage = async (imageUri: string, base64?: string | null) => {
     setScannedImageUri(imageUri);
     setScanning(true, 0.15, 'Enhancing receipt image...');
 
@@ -51,7 +51,7 @@ export default function ExpensesScreen() {
     } catch {}
 
     try {
-      const extractedData = await extractReceiptData(imageUri, (update) => {
+      const extractedData = await extractReceiptData(imageUri, base64, (update) => {
         setScanning(true, update.progress, update.stage);
       });
 
@@ -94,12 +94,13 @@ export default function ExpensesScreen() {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         quality: 0.9,
-        allowsEditing: false, // Prevents Android/iOS from diverting to gallery cropping
+        allowsEditing: false,
         cameraType: ImagePicker.CameraType.back,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        await processReceiptImage(result.assets[0].uri);
+        await processReceiptImage(result.assets[0].uri, result.assets[0].base64);
       }
     } catch (err) {
       console.warn('Native camera error:', err);
@@ -123,12 +124,13 @@ export default function ExpensesScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: 0.85,
+        quality: 0.9,
         allowsEditing: false,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        await processReceiptImage(result.assets[0].uri);
+        await processReceiptImage(result.assets[0].uri, result.assets[0].base64);
       }
     } catch (err) {
       console.warn('Gallery pick error:', err);

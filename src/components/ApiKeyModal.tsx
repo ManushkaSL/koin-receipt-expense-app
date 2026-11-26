@@ -12,7 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Key, Sparkles, X, Check, ExternalLink } from 'lucide-react-native';
 import { colors } from '../theme/colors';
-import { USER_GEMINI_KEY_STORAGE } from '../services/receiptExtractor';
+import { USER_AI_KEY_STORAGE } from '../services/receiptExtractor';
 
 interface ApiKeyModalProps {
   visible: boolean;
@@ -31,12 +31,12 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ visible, onClose }) =>
 
   const loadKey = async () => {
     try {
-      const stored = await AsyncStorage.getItem(USER_GEMINI_KEY_STORAGE);
+      const stored = await AsyncStorage.getItem(USER_AI_KEY_STORAGE);
       if (stored) {
         setApiKey(stored);
         setHasKey(true);
       } else {
-        const envKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+        const envKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
         setApiKey(envKey);
         setHasKey(!!envKey);
       }
@@ -47,13 +47,13 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ visible, onClose }) =>
     try {
       const trimmed = apiKey.trim();
       if (trimmed) {
-        await AsyncStorage.setItem(USER_GEMINI_KEY_STORAGE, trimmed);
+        await AsyncStorage.setItem(USER_AI_KEY_STORAGE, trimmed);
         setHasKey(true);
-        Alert.alert('Saved', 'Gemini Vision AI key saved successfully!');
+        Alert.alert('Saved', 'AI Vision key saved successfully!');
       } else {
-        await AsyncStorage.removeItem(USER_GEMINI_KEY_STORAGE);
+        await AsyncStorage.removeItem(USER_AI_KEY_STORAGE);
         setHasKey(false);
-        Alert.alert('Cleared', 'Switched to free zero-config Cloud OCR engine.');
+        Alert.alert('Cleared', 'Switched to free Cloud OCR engine.');
       }
       onClose();
     } catch (e) {
