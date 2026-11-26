@@ -12,8 +12,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Koin needs access to your camera to scan receipts.",
-        "NSPhotoLibraryUsageDescription": "Koin needs access to your photo library to pick receipt photos."
-      }
+        "NSPhotoLibraryUsageDescription": "Koin needs access to your photo library to pick receipt photos.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.manusl.koin"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,12 +26,9 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "package": "com.manusl.koin"
     },
     "web": {
       "favicon": "./assets/favicon.png",
