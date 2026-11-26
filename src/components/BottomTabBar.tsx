@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Home, ReceiptText, BarChart2, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
 import { NavigationTab, useExpenseStore } from '../store/useExpenseStore';
 
 export const BottomTabBar: React.FC = () => {
@@ -22,8 +21,8 @@ export const BottomTabBar: React.FC = () => {
         {tabs.map((tab) => {
           const isActive = activeTab === tab.name;
           const IconComponent = tab.icon;
-          const iconColor = isActive ? colors.primaryGreen : colors.textMuted;
-          const textColor = isActive ? colors.primaryGreen : colors.textMuted;
+          const iconColor = isActive ? '#10B981' : '#64748B';
+          const textColor = isActive ? '#10B981' : '#64748B';
 
           return (
             <TouchableOpacity
@@ -34,7 +33,11 @@ export const BottomTabBar: React.FC = () => {
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
-              <IconComponent size={22} color={iconColor} strokeWidth={isActive ? 2.4 : 1.9} />
+              <IconComponent
+                size={22}
+                color={iconColor}
+                strokeWidth={isActive ? 2.3 : 1.8}
+              />
               <Text
                 style={[
                   styles.tabLabel,
@@ -50,15 +53,20 @@ export const BottomTabBar: React.FC = () => {
           );
         })}
       </View>
+
+      {/* iOS Home Indicator Bar */}
+      <View style={styles.homeIndicatorWrapper}>
+        <View style={styles.homeIndicator} />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: '#F4F1EA', // Seamlessly matches Figma warm cream background
     borderTopWidth: 1,
-    borderTopColor: '#EAE6DF',
+    borderTopColor: '#EBE6DC',
     paddingTop: 10,
   },
   tabsRow: {
@@ -73,8 +81,19 @@ const styles = StyleSheet.create({
     minWidth: 64,
   },
   tabLabel: {
-    fontSize: 11,
-    marginTop: 4,
+    fontSize: 11.5,
+    marginTop: 5,
     letterSpacing: -0.1,
+  },
+  homeIndicatorWrapper: {
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  homeIndicator: {
+    width: 134,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#0F172A',
   },
 });

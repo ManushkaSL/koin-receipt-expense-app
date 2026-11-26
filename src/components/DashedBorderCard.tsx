@@ -14,9 +14,9 @@ export const DashedBorderCard: React.FC<DashedBorderCardProps> = ({
 }) => {
   return (
     <View style={styles.cardContainer}>
-      {/* Icon Badge */}
+      {/* Centered Mint Icon Badge */}
       <View style={styles.iconBadge}>
-        <ReceiptText size={22} color={colors.primaryGreen} strokeWidth={2.2} />
+        <ReceiptText size={24} color="#10B981" strokeWidth={2.2} />
       </View>
 
       {/* Headings */}
@@ -32,7 +32,7 @@ export const DashedBorderCard: React.FC<DashedBorderCardProps> = ({
           accessibilityLabel="Open camera to scan bill"
           accessibilityRole="button"
         >
-          <Camera size={18} color={colors.textPrimary} strokeWidth={2} style={styles.btnIcon} />
+          <Camera size={19} color="#0F172A" strokeWidth={2} style={styles.btnIcon} />
           <Text style={styles.buttonText}>Camera</Text>
         </TouchableOpacity>
 
@@ -43,7 +43,7 @@ export const DashedBorderCard: React.FC<DashedBorderCardProps> = ({
           accessibilityLabel="Choose receipt from gallery"
           accessibilityRole="button"
         >
-          <ImageIcon size={18} color={colors.textPrimary} strokeWidth={2} style={styles.btnIcon} />
+          <ImageIcon size={19} color="#0F172A" strokeWidth={2} style={styles.btnIcon} />
           <Text style={styles.buttonText}>Gallery</Text>
         </TouchableOpacity>
       </View>
@@ -53,49 +53,38 @@ export const DashedBorderCard: React.FC<DashedBorderCardProps> = ({
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: colors.cardBg,
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: '#A7F3D0', // Mint dashed border matching Figma
+    borderColor: '#86EFAC', // Exact mint green dashed outline from Figma
     borderStyle: 'dashed',
-    paddingVertical: 28,
-    paddingHorizontal: 20,
+    paddingVertical: 32,
+    paddingHorizontal: 22,
     alignItems: 'center',
     marginHorizontal: 18,
-    marginTop: 18,
-    marginBottom: 26,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    marginTop: 16,
+    marginBottom: 28,
   },
   iconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#E6F7F0',
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7', // Soft mint rounded square
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    letterSpacing: -0.3,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.4,
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 13.5,
-    color: colors.textSecondary,
-    marginBottom: 20,
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 22,
     fontWeight: '400',
   },
   buttonRow: {
@@ -120,8 +109,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   buttonText: {
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#0F172A',
   },
 });

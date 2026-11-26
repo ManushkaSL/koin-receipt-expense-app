@@ -28,9 +28,9 @@ export const ExpenseRow: React.FC<ExpenseRowProps> = ({
 }) => {
   const categoryInfo = getCategoryInfo(expense.category);
 
-  // Render proper icon for category
+  // Render proper icon for category matching Figma
   const renderIcon = () => {
-    const iconProps = { size: 20, color: categoryInfo.color, strokeWidth: 2 };
+    const iconProps = { size: 21, color: categoryInfo.color, strokeWidth: 2 };
     switch (categoryInfo.icon) {
       case 'coffee':
         return <Coffee {...iconProps} />;
@@ -52,7 +52,7 @@ export const ExpenseRow: React.FC<ExpenseRowProps> = ({
   };
 
   return (
-    <View>
+    <View style={styles.itemWrapper}>
       <TouchableOpacity
         activeOpacity={0.7}
         onPress={onPress}
@@ -60,7 +60,7 @@ export const ExpenseRow: React.FC<ExpenseRowProps> = ({
         accessibilityRole="button"
         accessibilityLabel={`${expense.merchant}, ${expense.date}, ${formatCurrency(expense.total)}`}
       >
-        {/* Category Icon Badge */}
+        {/* Soft Pastel Category Icon Badge */}
         <View style={[styles.iconBadge, { backgroundColor: categoryInfo.bgColor }]}>
           {renderIcon()}
         </View>
@@ -79,40 +79,43 @@ export const ExpenseRow: React.FC<ExpenseRowProps> = ({
         </View>
       </TouchableOpacity>
 
+      {/* Subtle Divider Line starting from the merchant text */}
       {!isLast && <View style={styles.divider} />}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  itemWrapper: {
+    paddingHorizontal: 20,
+  },
   rowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 4,
   },
   iconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 16,
   },
   infoCol: {
     flex: 1,
     justifyContent: 'center',
   },
   merchantName: {
-    fontSize: 15.5,
+    fontSize: 16,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#0F172A',
     marginBottom: 4,
     letterSpacing: -0.2,
   },
   timestamp: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: '#64748B',
     fontWeight: '400',
   },
   amountCol: {
@@ -120,15 +123,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   amountText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    letterSpacing: -0.2,
-    fontVariant: ['tabular-nums'], // Crucial for tabular alignment per spec
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
   },
   divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E1D8', // Warm subtle divider
-    marginLeft: 58,
+    height: 1,
+    backgroundColor: '#E7E2D8', // Matches Figma cream background divider
+    marginLeft: 64, // Aligned with the text start
   },
 });

@@ -120,7 +120,6 @@ export default function ExpensesScreen() {
   };
 
   const handleScanBillPress = () => {
-    // Top right "+ Scan Bill" pill button presents prompt or direct camera
     Alert.alert(
       'Scan Bill',
       'Choose how you want to upload your receipt:',
@@ -150,7 +149,7 @@ export default function ExpensesScreen() {
           accessibilityRole="button"
           accessibilityLabel="Scan Bill"
         >
-          <Plus size={16} color="#FFFFFF" strokeWidth={2.8} style={styles.plusIcon} />
+          <Plus size={16} color="#FFFFFF" strokeWidth={3} style={styles.plusIcon} />
           <Text style={styles.scanBillText}>Scan Bill</Text>
         </TouchableOpacity>
       </View>
@@ -166,14 +165,14 @@ export default function ExpensesScreen() {
           onGalleryPress={handleGalleryPick}
         />
 
-        {/* Recent Activity Section */}
+        {/* Recent Activity Section Header */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
           <Text style={styles.sectionSubtitle}>This week</Text>
         </View>
 
-        {/* Transaction Rows Card */}
-        <View style={styles.recentActivityCard}>
+        {/* Transaction Rows directly on warm cream background */}
+        <View style={styles.recentActivityList}>
           {expenses.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No expenses recorded yet.</Text>
@@ -187,9 +186,6 @@ export default function ExpensesScreen() {
                 key={expense.id}
                 expense={expense}
                 isLast={index === expenses.length - 1}
-                onPress={() => {
-                  // Optionally preview historical expense
-                }}
               />
             ))
           )}
@@ -213,14 +209,15 @@ export default function ExpensesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F4F1EA', // Exact warm off-white / cream
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   titleColumn: {
     justifyContent: 'flex-end',
@@ -228,7 +225,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 12,
     fontWeight: '800',
-    color: colors.primaryGreen,
+    color: '#059669', // Deep emerald green
     letterSpacing: 1.2,
     marginBottom: 4,
     textTransform: 'uppercase',
@@ -236,13 +233,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#0F172A',
     letterSpacing: -0.6,
   },
   scanBillButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#00B37E', // Vibrant emerald green from Figma
+    backgroundColor: '#00B37E', // Vibrant emerald green pill
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 24,
@@ -263,7 +260,7 @@ const styles = StyleSheet.create({
   },
   scanBillText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '700',
   },
   scrollContent: {
@@ -274,39 +271,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 6,
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#0F172A',
     letterSpacing: -0.3,
   },
   sectionSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 13.5,
+    color: '#64748B',
     fontWeight: '500',
   },
-  recentActivityCard: {
-    backgroundColor: colors.cardBg,
-    borderRadius: 22,
-    marginHorizontal: 18,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#EAE6DF',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+  recentActivityList: {
+    width: '100%',
   },
   emptyContainer: {
     paddingVertical: 32,
@@ -316,12 +296,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#0F172A',
     marginBottom: 6,
   },
   emptySubtext: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: '#64748B',
     textAlign: 'center',
   },
 });
