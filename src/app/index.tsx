@@ -22,6 +22,7 @@ import { ExpenseRow } from '../components/ExpenseRow';
 import { BottomTabBar } from '../components/BottomTabBar';
 import { ScanningModal } from '../components/ScanningModal';
 import { WebCameraModal } from '../components/WebCameraModal';
+import { ScanActionSheet } from '../components/ScanActionSheet';
 
 export default function ExpensesScreen() {
   const insets = useSafeAreaInsets();
@@ -38,6 +39,7 @@ export default function ExpensesScreen() {
 
   const [scannedImageUri, setScannedImageUri] = useState<string | null>(null);
   const [webCameraVisible, setWebCameraVisible] = useState(false);
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
 
   // Common handler to start extraction pipeline
   const processReceiptImage = async (imageUri: string, base64?: string | null) => {
@@ -136,16 +138,7 @@ export default function ExpensesScreen() {
   };
 
   const handleScanBillPress = () => {
-    Alert.alert(
-      'Scan Bill',
-      'Choose how you want to upload your receipt:',
-      [
-        { text: 'Take Photo', onPress: handleCameraCapture },
-        { text: 'Choose from Gallery', onPress: handleGalleryPick },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
-    );
+    setActionSheetVisible(true);
   };
 
   return (
@@ -227,6 +220,14 @@ export default function ExpensesScreen() {
           processReceiptImage(dataUri);
         }}
         onClose={() => setWebCameraVisible(false)}
+      />
+
+      {/* Premium Spring Action Sheet */}
+      <ScanActionSheet
+        visible={actionSheetVisible}
+        onCamera={handleCameraCapture}
+        onGallery={handleGalleryPick}
+        onClose={() => setActionSheetVisible(false)}
       />
     </View>
   );

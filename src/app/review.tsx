@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
   Image,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -50,6 +51,25 @@ export default function ReviewReceiptScreen() {
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const totalScaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (currentReview?.total !== undefined) {
+      Animated.sequence([
+        Animated.timing(totalScaleAnim, {
+          toValue: 1.07,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(totalScaleAnim, {
+          toValue: 1,
+          friction: 6,
+          tension: 120,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [currentReview?.total]);
 
   // If no review data exists (e.g. direct deep-link or refresh), provide fallback or back button
   if (!currentReview) {
@@ -276,9 +296,11 @@ export default function ReviewReceiptScreen() {
         <View style={styles.totalRow}>
           <View>
             <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalAmountText}>
-              {formatCurrency(currentReview.total)}
-            </Text>
+            <Animated.View style={{ transform: [{ scale: totalScaleAnim }], alignSelf: 'flex-start' }}>
+              <Text style={styles.totalAmountText}>
+                {formatCurrency(currentReview.total)}
+              </Text>
+            </Animated.View>
           </View>
 
           {/* Item count badge */}
