@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { Plus } from 'lucide-react-native';
+import { Plus, Sparkles } from 'lucide-react-native';
 
 import { colors } from '../theme/colors';
 import { useExpenseStore } from '../store/useExpenseStore';
@@ -22,6 +22,7 @@ import { ExpenseRow } from '../components/ExpenseRow';
 import { BottomTabBar } from '../components/BottomTabBar';
 import { ScanningModal } from '../components/ScanningModal';
 import { WebCameraModal } from '../components/WebCameraModal';
+import { ApiKeyModal } from '../components/ApiKeyModal';
 
 export default function ExpensesScreen() {
   const insets = useSafeAreaInsets();
@@ -38,11 +39,12 @@ export default function ExpensesScreen() {
 
   const [scannedImageUri, setScannedImageUri] = useState<string | null>(null);
   const [webCameraVisible, setWebCameraVisible] = useState(false);
+  const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
 
   // Common handler to start extraction pipeline
   const processReceiptImage = async (imageUri: string) => {
     setScannedImageUri(imageUri);
-    setScanning(true, 0.1, 'Preparing receipt image...');
+    setScanning(true, 0.15, 'Enhancing receipt image...');
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -101,7 +103,6 @@ export default function ExpensesScreen() {
       }
     } catch (err) {
       console.warn('Native camera error:', err);
-      // Fallback
       Alert.alert(
         'Camera Error',
         'Could not start camera on this device. Please use gallery upload.'
@@ -122,7 +123,7 @@ export default function ExpensesScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: 0.8,
+        quality: 0.85,
         allowsEditing: false,
       });
 
@@ -141,6 +142,7 @@ export default function ExpensesScreen() {
       [
         { text: 'Take Photo', onPress: handleCameraCapture },
         { text: 'Choose from Gallery', onPress: handleGalleryPick },
+        { text: 'AI Settings', onPress: () => setApiKeyModalVisible(true) },
         { text: 'Cancel', style: 'cancel' },
       ],
       { cancelable: true }
@@ -152,7 +154,17 @@ export default function ExpensesScreen() {
       {/* Top Header */}
       <View style={styles.headerRow}>
         <View style={styles.titleColumn}>
-          <Text style={styles.eyebrow}>KOIN</Text>
+          <View style={styles.eyebrowRow}>
+            <Text style={styles.eyebrow}>KOIN</Text>
+            <TouchableOpacity
+              onPress={() => setApiKeyModalVisible(true)}
+              style={styles.aiBadge}
+              accessibilityLabel="AI Scanner Settings"
+            >
+              <Sparkles size={11} color="#059669" />
+              <Text style={styles.aiBadgeText}>AI Engine</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.title}>Expenses</Text>
         </View>
 
@@ -227,6 +239,12 @@ export default function ExpensesScreen() {
         }}
         onClose={() => setWebCameraVisible(false)}
       />
+
+      {/* AI Key / Configuration Modal */}
+      <ApiKeyModal
+        visible={apiKeyModalVisible}
+        onClose={() => setApiKeyModalVisible(false)}
+      />
     </View>
   );
 }
@@ -247,13 +265,32 @@ const styles = StyleSheet.create({
   titleColumn: {
     justifyContent: 'flex-end',
   },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   eyebrow: {
     fontSize: 12,
     fontWeight: '800',
     color: '#059669',
     letterSpacing: 1.2,
-    marginBottom: 4,
     textTransform: 'uppercase',
+  },
+  aiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    gap: 3,
+  },
+  aiBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065F46',
   },
   title: {
     fontSize: 32,
